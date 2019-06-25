@@ -520,6 +520,11 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 			__func__, inst);
 		return -EINVAL;
 	}
+	if (inst->in_flush && inst->session_type == MSM_VIDC_DECODER &&
+				b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		dprintk(VIDC_ERR, "%s: session in flush, discarding qbuf\n", __func__);
+		return -EINVAL;
+	}
 
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
