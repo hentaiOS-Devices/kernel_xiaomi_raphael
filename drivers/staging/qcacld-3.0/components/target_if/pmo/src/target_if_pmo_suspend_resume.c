@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -50,12 +50,6 @@ QDF_STATUS target_if_pmo_send_vdev_update_param_req(
 		return QDF_STATUS_E_INVAL;
 	}
 
-	/* Any new param_id added here please also add it to
-	 * wmi_tag_vdev_set_cmd to be tagged for runtime PM feature
-	 * so that it will not invoke runtime PM "get" which will
-	 * result resume right after suspend (WOW_ENABLE).
-	 */
-
 	switch (param_id) {
 	case pmo_vdev_param_listen_interval:
 		param_id = WMI_VDEV_PARAM_LISTEN_INTERVAL;
@@ -74,7 +68,7 @@ QDF_STATUS target_if_pmo_send_vdev_update_param_req(
 		return QDF_STATUS_E_INVAL;
 	}
 
-	param.vdev_id = vdev_id;
+	param.if_id = vdev_id;
 	param.param_id = param_id;
 	param.param_value = param_value;
 	target_if_debug("set vdev param vdev_id: %d value: %d for param_id: %d",
@@ -105,21 +99,9 @@ QDF_STATUS target_if_pmo_send_vdev_ps_param_req(
 		return QDF_STATUS_E_INVAL;
 	}
 
-	/*
-	 * Any new param_id added here must be added to
-	 * wmi_tag_sta_powersave_cmd() to be tagged for runtime PM feature
-	 * so that it will not invoke runtime PM "get" which will
-	 * result resume right after suspend (WOW_ENABLE).
-	 */
 	switch (param_id) {
-	case pmo_sta_ps_enable_advanced_power:
+	case pmo_sta_ps_enable_qpower:
 		param_id = WMI_STA_PS_ENABLE_QPOWER;
-		break;
-	case pmo_sta_ps_param_inactivity_time:
-		param_id = WMI_STA_PS_PARAM_INACTIVITY_TIME;
-		break;
-	case pmo_sta_ps_param_ito_repeat_count:
-		param_id = WMI_STA_PS_PARAM_MAX_RESET_ITO_COUNT_ON_TIM_NO_TXRX;
 		break;
 	default:
 		target_if_err("invalid vdev param id %d", param_id);
@@ -127,7 +109,7 @@ QDF_STATUS target_if_pmo_send_vdev_ps_param_req(
 	}
 
 	sta_ps_param.vdev_id = vdev_id;
-	sta_ps_param.param_id = param_id;
+	sta_ps_param.param = param_id;
 	sta_ps_param.value = param_value;
 	target_if_debug("set vdev param vdev_id: %d value: %d for param_id: %d",
 			vdev_id, param_value, param_id);
@@ -197,19 +179,6 @@ void target_if_pmo_update_target_suspend_flag(struct wlan_objmgr_psoc *psoc,
 	}
 
 	wmi_set_target_suspend(wmi_handle, value);
-}
-
-bool target_if_pmo_is_target_suspended(struct wlan_objmgr_psoc *psoc)
-{
-	wmi_unified_t wmi_handle;
-
-	wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-	if (!wmi_handle) {
-		target_if_err("Invalid wmi handle");
-		return false;
-	}
-
-	return wmi_is_target_suspended(wmi_handle);
 }
 
 QDF_STATUS target_if_pmo_psoc_send_wow_enable_req(
@@ -301,21 +270,6 @@ QDF_STATUS target_if_pmo_psoc_send_target_resume_req(
 	}
 
 	return wmi_unified_resume_send(wmi_handle, TGT_WILDCARD_PDEV_ID);
-}
-
-QDF_STATUS
-target_if_pmo_psoc_send_idle_monitor_cmd(struct wlan_objmgr_psoc *psoc,
-					 uint8_t val)
-{
-	wmi_unified_t wmi_handle;
-
-	wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-	if (!wmi_handle) {
-		target_if_err("Invalid wmi handle");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	return wmi_unified_send_idle_trigger_monitor(wmi_handle, val);
 }
 
 #ifdef FEATURE_WLAN_D0WOW

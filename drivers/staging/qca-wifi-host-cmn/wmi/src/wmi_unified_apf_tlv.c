@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -17,7 +17,6 @@
  */
 
 #include "wmi_unified_apf_tlv.h"
-#include "wmi.h"
 
 QDF_STATUS wmi_send_set_active_apf_mode_cmd_tlv(wmi_unified_t wmi_handle,
 					    uint8_t vdev_id,
@@ -217,11 +216,10 @@ wmi_extract_apf_read_memory_resp_event_tlv(wmi_unified_t wmi_handle,
 			 param_buf->num_data);
 		return QDF_STATUS_E_INVAL;
 	}
+	resp->length = data_event->length;
 
-	if (data_event->length && param_buf->data) {
-		resp->length = data_event->length;
+	if (resp->length)
 		resp->data = (uint8_t *)param_buf->data;
-	}
 
 	return QDF_STATUS_SUCCESS;
 }

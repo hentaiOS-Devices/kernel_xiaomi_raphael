@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -108,7 +108,6 @@ enum scan_source {
  * @scan_id: scan identifier used across host layers which is generated at WMI
  * @source: scan request originator (NL/Vendor scan)
  * @dev: net device (same as what is in scan_request)
- * @scan_start_timestamp: scan start time
  *
  * Scan request linked list element
  */
@@ -118,40 +117,20 @@ struct scan_req {
 	uint32_t scan_id;
 	uint8_t source;
 	struct net_device *dev;
-	qdf_time_t scan_start_timestamp;
 };
 
 /**
  * struct scan_params - Scan params
  * @source: scan request source
  * @default_ie: default scan ie
- * @vendor_ie: vendor ie
- * @priority: scan priority
  * @half_rate: Half rate flag
  * @quarter_rate: Quarter rate flag
- * @strict_pscan: strict passive scan flag
- * @dwell_time_active: Active dwell time. Ignored if zero or inapplicable.
- * @dwell_time_active_2g: 2.4 GHz specific active dwell time. Ignored if zero or
- * inapplicable.
- * @dwell_time_passive: Passive dwell time. Ignored if zero or inapplicable.
- * @dwell_time_active_6g: 6 GHz specific active dwell time. Ignored if zero or
- * inapplicable.
- * @dwell_time_passive_6g: 6 GHz specific passive dwell time. Ignored if zero or
- * inapplicable.
  */
 struct scan_params {
 	uint8_t source;
 	struct element_info default_ie;
-	struct element_info vendor_ie;
-	enum scan_priority priority;
 	bool half_rate;
 	bool quarter_rate;
-	bool strict_pscan;
-	uint32_t dwell_time_active;
-	uint32_t dwell_time_active_2g;
-	uint32_t dwell_time_passive;
-	uint32_t dwell_time_active_6g;
-	uint32_t dwell_time_passive_6g;
 };
 
 /**
@@ -161,7 +140,7 @@ struct scan_params {
  * @frame_len: frame length
  * @rssi: signal strength in mBm (100*dBm)
  * @boottime_ns: timestamp (CLOCK_BOOTTIME) when the information was received.
- * @per_chain_rssi: per chain rssi received
+ * @per_chain_snr: per chain snr received
  */
 struct wlan_cfg80211_inform_bss {
 	struct ieee80211_channel *chan;
@@ -169,30 +148,34 @@ struct wlan_cfg80211_inform_bss {
 	size_t frame_len;
 	int rssi;
 	uint64_t boottime_ns;
-	uint8_t per_chain_rssi[WLAN_MGMT_TXRX_HOST_MAX_ANTENNA];
+	uint8_t per_chain_snr[WLAN_MGMT_TXRX_HOST_MAX_ANTENNA];
 };
 
 
 #ifdef FEATURE_WLAN_SCAN_PNO
 /**
  * wlan_cfg80211_sched_scan_start() - cfg80211 scheduled scan(pno) start
- * @vdev: vdev pointer
+ * @pdev: pdev pointer
+ * @dev: Pointer network device
  * @request: Pointer to cfg80211 scheduled scan start request
  * @scan_backoff_multiplier: multiply scan period by this after max cycles
  *
  * Return: 0 for success, non zero for failure
  */
-int wlan_cfg80211_sched_scan_start(struct wlan_objmgr_vdev *vdev,
-				   struct cfg80211_sched_scan_request *request,
-				   uint8_t scan_backoff_multiplier);
+int wlan_cfg80211_sched_scan_start(struct wlan_objmgr_pdev *pdev,
+	struct net_device *dev,
+	struct cfg80211_sched_scan_request *request,
+	uint8_t scan_backoff_multiplier);
 
 /**
  * wlan_cfg80211_sched_scan_stop() - cfg80211 scheduled scan(pno) stop
- * @vdev: vdev pointer
+ * @pdev: pdev pointer
+ * @dev: Pointer network device
  *
  * Return: 0 for success, non zero for failure
  */
-int wlan_cfg80211_sched_scan_stop(struct wlan_objmgr_vdev *vdev);
+int wlan_cfg80211_sched_scan_stop(struct wlan_objmgr_pdev *pdev,
+	struct net_device *dev);
 #endif
 
 /**
@@ -240,7 +223,7 @@ QDF_STATUS wlan_cfg80211_scan_priv_deinit(
 
 /**
  * wlan_cfg80211_scan() - API to process cfg80211 scan request
- * @vdev: Pointer to vdev
+ * @pdev: Pointer to pdev
  * @request: Pointer to scan request
  * @params: scan params
  *
@@ -250,9 +233,9 @@ QDF_STATUS wlan_cfg80211_scan_priv_deinit(
  *
  * Return: 0 for success, non zero for failure
  */
-int wlan_cfg80211_scan(struct wlan_objmgr_vdev *vdev,
-		       struct cfg80211_scan_request *request,
-		       struct scan_params *params);
+int wlan_cfg80211_scan(struct wlan_objmgr_pdev *pdev,
+		struct cfg80211_scan_request *request,
+		struct scan_params *params);
 
 /**
  * wlan_cfg80211_inform_bss_frame_data() - API to inform beacon to cfg80211
@@ -279,18 +262,6 @@ wlan_cfg80211_inform_bss_frame_data(struct wiphy *wiphy,
  */
 void wlan_cfg80211_inform_bss_frame(struct wlan_objmgr_pdev *pdev,
 	struct scan_cache_entry *scan_params);
-
-/**
- * __wlan_cfg80211_unlink_bss_list() - flush bss from the kernel cache
- * @wiphy: wiphy
- * @bssid: bssid of the BSS to find
- * @ssid: ssid of the BSS to find
- * @ssid_len: ssid len of of the BSS to find
- *
- * Return: None
- */
-void __wlan_cfg80211_unlink_bss_list(struct wiphy *wiphy, uint8_t *bssid,
-				     uint8_t *ssid, uint8_t ssid_len);
 
 /**
  * wlan_cfg80211_get_bss() - Get the bss entry matching the chan, bssid and ssid
@@ -375,43 +346,5 @@ QDF_STATUS wlan_abort_scan(struct wlan_objmgr_pdev *pdev,
 void wlan_cfg80211_cleanup_scan_queue(struct wlan_objmgr_pdev *pdev,
 				      struct net_device *dev);
 
-/**
- * wlan_hdd_cfg80211_add_connected_pno_support() - Set connected PNO support
- * @wiphy: Pointer to wireless phy
- *
- * This function is used to set connected PNO support to kernel
- *
- * Return: None
- */
-#if defined(CFG80211_REPORT_BETTER_BSS_IN_SCHED_SCAN) || \
-	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
-void wlan_scan_cfg80211_add_connected_pno_support(struct wiphy *wiphy);
-
-#else
-static inline
-void wlan_scan_cfg80211_add_connected_pno_support(struct wiphy *wiphy)
-{
-}
-#endif
-
-#if ((LINUX_VERSION_CODE > KERNEL_VERSION(4, 4, 0)) || \
-		defined(CFG80211_MULTI_SCAN_PLAN_BACKPORT)) && \
-		defined(FEATURE_WLAN_SCAN_PNO)
-/**
- * hdd_config_sched_scan_plans_to_wiphy() - configure sched scan plans to wiphy
- * @wiphy: pointer to wiphy
- * @config: pointer to config
- *
- * Return: None
- */
-void wlan_config_sched_scan_plans_to_wiphy(struct wiphy *wiphy,
-					   struct wlan_objmgr_psoc *psoc);
-#else
-static inline
-void wlan_config_sched_scan_plans_to_wiphy(struct wiphy *wiphy,
-					   struct wlan_objmgr_psoc *psoc)
-{
-}
-#endif /* FEATURE_WLAN_SCAN_PNO */
 
 #endif
