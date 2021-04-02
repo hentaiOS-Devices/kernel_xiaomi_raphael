@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2196,17 +2196,11 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 	}
 
 	INIT_LIST_HEAD(&cluster->list);
-	cluster->efficiency = topology_get_cpu_efficiency(cpumask_first(cpus));
-	/*
-	 * Assume power cost is proportional to efficiency of the CPU,
-	 * which most of the times would be true. By assiging
-	 * power cost early, the clusters remain sorted even when
-	 * cpufreq is disabled.
-	 */
-	cluster->max_power_cost		=	cluster->efficiency;
-	cluster->min_power_cost		=	cluster->efficiency;
+	cluster->max_power_cost		=	1;
+	cluster->min_power_cost		=	1;
 	cluster->capacity		=	1024;
 	cluster->max_possible_capacity	=	1024;
+	cluster->efficiency		=	1;
 	cluster->load_scale_factor	=	1024;
 	cluster->cur_freq		=	1;
 	cluster->max_freq		=	1;
@@ -2220,6 +2214,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 
 	raw_spin_lock_init(&cluster->load_lock);
 	cluster->cpus = *cpus;
+	cluster->efficiency = topology_get_cpu_efficiency(cpumask_first(cpus));
 
 	if (cluster->efficiency > max_possible_efficiency)
 		max_possible_efficiency = cluster->efficiency;
@@ -3424,9 +3419,12 @@ static void walt_init_once(void)
 void walt_sched_init_rq(struct rq *rq)
 {
 	int j;
+	static bool init;
 
-	if (cpu_of(rq) == 0)
+	if (!init) {
 		walt_init_once();
+		init = true;
+	}
 
 	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
 
